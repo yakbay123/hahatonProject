@@ -303,17 +303,25 @@ if __name__ == '__main__':
 
     print(f"\n Собрано: {len(all_items)}")
     
-    # Красивый вывод таблицы
-    print("=" * 120)
-    # Заголовки с форматированием ширины
-    header = f"{'АРТИКУЛ':<12} | {'ЦЕНА':<10} | {'РЕЙТИНГ':<7} | {'БРЕНД':<15} | {'НАЗВАНИЕ'}"
+   # Красивый вывод таблицы
+    print("=" * 160) # Делаем разделитель длиннее под ссылку
+    # Добавил колонку ФОТО в конец
+    header = f"{'АРТИКУЛ':<12} | {'ЦЕНА':<10} | {'РЕЙТИНГ':<7} | {'БРЕНД':<12} | {'НАЗВАНИЕ':<35} | {'ФОТО'}"
     print(header)
-    print("=" * 120)
+    print("=" * 160)
     
     for item in all_items[:15]:
-        # item = [Name, Price, Article, Rating, Brand, Image]
-        name_short = (item[0][:40] + '..') if len(item[0]) > 40 else item[0]
-        brand_short = (item[4][:15]) if len(item[4]) > 15 else item[4]
+        # Структура item: [Name, Price, Article, Rating, Brand, Image]
         
-        row = f"{item[2]:<12} | {item[1]:<10} | {item[3]:<7} | {brand_short:<15} | {name_short}"
+        # Обрезаем название до 35 символов, чтобы ссылка влезла
+        name_short = (item[0][:33] + '..') if len(item[0]) > 35 else item[0]
+        
+        # Бренд тоже немного подрежем если длинный
+        brand_short = (item[4][:12]) if len(item[4]) > 12 else item[4]
+        
+        # Ссылка на фото (item[5])
+        image_link = item[5]
+
+        # Формируем строку
+        row = f"{item[2]:<12} | {item[1]:<10} | {item[3]:<7} | {brand_short:<12} | {name_short:<35} | {image_link}"
         print(row)
