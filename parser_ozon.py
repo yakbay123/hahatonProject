@@ -1,57 +1,112 @@
 import json
 import time
+import os
 import undetected_chromedriver as uc
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service as ChromeService
 from curl_cffi import requests 
 
-# --- ФУНКЦИИ ДЛЯ ДАННЫХ ---
+# --- КОНФИГУРАЦИЯ ---
+# Файлы для хранения сессии
+COOKIES_FILE = "cookies_dict.txt"
+UA_FILE = "user_agent.txt"
+
+# --- ФУНКЦИИ ДЛЯ ФАЙЛОВ ---
 def load_data(filename, default_value=None):
+    if not os.path.exists(filename):
+        return default_value
     try:
         with open(filename, "r", encoding="utf-8") as file:
             content = file.read().strip()
             if not content: return default_value
             try: return json.loads(content)
             except: return content
-    except FileNotFoundError: return default_value
+    except: return default_value
 
 def save_data(filename, data):
     with open(filename, "w", encoding="utf-8") as file:
         if isinstance(data, (dict, list)): json.dump(data, file, ensure_ascii=False, indent=4)
         else: file.write(str(data))
 
-# --- ОСНОВНАЯ ЛОГИКА ---
-cookies_dict = load_data("cookies_dict.txt", default_value={}) 
-user_agent = load_data("user_agent.txt", default_value="")
-
-def get_cookies():
-    print("Запуск браузера для получения куки...")
+# --- БРАУЗЕР (SELENIUM) ---
+def get_new_cookies():
+    """Запускает браузер, чтобы получить свежие куки."""
+    print("\nЗапускаем Chrome для обновления куки...")
     options = uc.ChromeOptions()
+    
     try:
         with uc.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options) as driver:
             driver.implicitly_wait(10)
             driver.get("https://www.ozon.ru")
-            time.sleep(6) 
-            driver.execute_script("window.scrollTo(0, 200);")
             
-            new_user_agent = driver.execute_script("return navigator.userAgent")
+            print("Ждем прогрузки защиты Ozon (6 сек)...")
+            time.sleep(6) 
+            
+            # Имитируем поведение человека (скролл)
+            driver.execute_script("window.scrollTo(0, 300);")
+            time.sleep(2)
+            
+            user_agent = driver.execute_script("return navigator.userAgent")
             cookies = driver.get_cookies()
-
-        new_cookies_dict = {i["name"]: i["value"] for i in cookies}
-        save_data("user_agent.txt", new_user_agent)
-        save_data("cookies_dict.txt", new_cookies_dict)
-        return new_user_agent, new_cookies_dict
+            
+            # Преобразуем куки в словарь
+            cookies_dict = {c["name"]: c["value"] for c in cookies}
+            
+            save_data(UA_FILE, user_agent)
+            save_data(COOKIES_FILE, cookies_dict)
+            
+            print("Куки успешно обновлены и сохранены!\n")
+            return user_agent, cookies_dict
     except Exception as e:
-        print(f"Ошибка в браузере: {e}")
-        return "", {}
+        print(f"Ошибка при обновлении куки: {e}")
+        return None, None
 
-def get_page(text: str, page: int, current_cookies: dict, current_user_agent: str):
+# --- ПРОВЕРКА КУКИ ---
+def check_cookies_validity(cookies, user_agent):
+    """Делает тестовый запрос, чтобы понять, живы ли куки."""
+    if not cookies or not user_agent:
+        return False
+        
+    print("Проверяем актуальность текущих куки...")
+    url = "https://www.ozon.ru/api/composer-api.bx/_action/v2/searchResultsV2?url=/search/?text=test"
+    
+    headers = {
+        "User-Agent": user_agent,
+        "Content-Type": "application/json",
+        "x-o3-app-name": "dweb_client",
+    }
+
+    try:
+        # Делаем легкий запрос
+        response = requests.get(
+            "https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=/search/?text=test",
+            cookies=cookies,
+            headers=headers,
+            impersonate="chrome110",
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            print("Куки валидны. Браузер запускать не нужно.")
+            return True
+        elif response.status_code == 403:
+            print("Куки просрочены (403 Forbidden).")
+            return False
+        else:
+            print(f"Странный статус ответа: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"Ошибка проверки куки: {e}")
+        return False
+
+# --- ПАРСИНГ (API) ---
+def get_page(text: str, page: int, cookies: dict, ua: str):
     print(f"Запрос API: страница {page}")
     
     url = f"https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=/search/?page={page}&text={text.replace(' ', '+')}&layout_container=searchPage"
     
     headers = {
-        "User-Agent": current_user_agent,
+        "User-Agent": ua,
         "Accept": "application/json",
         "x-o3-app-name": "dweb_client", 
     }
@@ -59,14 +114,14 @@ def get_page(text: str, page: int, current_cookies: dict, current_user_agent: st
     try:
         response = requests.get(
             url, 
-            cookies=current_cookies, 
+            cookies=cookies, 
             headers=headers, 
             impersonate="chrome110",
             timeout=15
         )
         
         if response.status_code == 403:
-            print("403 Forbidden. Куки сгорели.")
+            print("403 Forbidden во время парсинга.")
             return None, 1
             
         response_json = response.json()
@@ -89,7 +144,7 @@ def get_data_json(response_json):
     widget_states = response_json.get("widgetStates", {})
     found_something = False
     
-    # --- УНИВЕРСАЛЬНЫЙ ПОИСК ---
+    # Универсальная рекурсивная функция поиска
     def deep_search(data, target_keys=None, value_condition=None):
         found_values = []
         if isinstance(data, dict):
@@ -106,11 +161,11 @@ def get_data_json(response_json):
             data = json.loads(value_str)
             if "items" in data and isinstance(data["items"], list) and len(data["items"]) > 0:
                 if "mainState" in data["items"][0]:
-                    print(f"-> Данные найдены в ключе: {key}")
+                    # print(f"-> Данные найдены в ключе: {key}") # Можно раскомментировать для отладки
                     found_something = True
                     
                     for item in data["items"]:
-                        # 1. НАЗВАНИЕ (Самый длинный текст в объекте)
+                        # 1. НАЗВАНИЕ
                         potential_names = deep_search(item, target_keys=["textAtom", "text"])
                         clean_names = []
                         for p in potential_names:
@@ -122,34 +177,28 @@ def get_data_json(response_json):
                             best_name = max(clean_names, key=len)
                             if len(best_name) > 10: name = best_name
 
-                        # 2. ЦЕНА (Ищем символ рубля)
+                        # 2. ЦЕНА
                         potential_prices = deep_search(item, value_condition=lambda x: "₽" in x and len(x) < 20)
                         price = potential_prices[0] if potential_prices else "Нет цены"
                         
-                        # Если цена не найдена символом, пробуем через структуру
                         if price == "Нет цены":
                              pv2 = deep_search(item, target_keys=["priceV2"])
                              if pv2:
                                  try: price = pv2[0]["price"][0]["text"]
                                  except: pass
 
-                        # 3. ИЗОБРАЖЕНИЕ (Новый блок)
-                        # Ищем ссылки, заканчивающиеся на расширения картинок
+                        # 3. ФОТО
                         potential_images = deep_search(
                             item,
-                            target_keys=["src", "url", "link"], # Возможные ключи
-                            value_condition=lambda x: isinstance(x, str) and x.startswith("http") and (".jpg" in x or ".jpeg" in x or ".webp" in x or ".png" in x)
+                            target_keys=["src", "url", "link"], 
+                            value_condition=lambda x: isinstance(x, str) and x.startswith("http") and (".jpg" in x or ".webp" in x or ".png" in x)
                         )
                         
-                        # Фильтруем мусор (иконки, SVG и т.д., если они попали), берем первую нормальную ссылку
                         image_url = "Нет картинки"
                         for img in potential_images:
-                            # Ozon картинки обычно лежат на cdn или ir.ozon.ru
                             if "ozon" in img or "cdn" in img:
                                 image_url = img
                                 break
-                        
-                        # Если ничего специфичного не нашли, берем первую попавшуюся
                         if image_url == "Нет картинки" and potential_images:
                             image_url = potential_images[0]
 
@@ -157,43 +206,60 @@ def get_data_json(response_json):
                             result.append([name, price, image_url])
                     
                     break 
-        except Exception as e:
+        except Exception:
             continue
-
-    if not found_something:
-        print("Данные не найдены.")
 
     return result
 
+# --- ГЛАВНЫЙ ЗАПУСК ---
 if __name__ == '__main__':
-    if not user_agent or not cookies_dict:
-        user_agent, cookies_dict = get_cookies()
-    
+    # 1. Загружаем сохраненные данные
+    user_agent = load_data(UA_FILE)
+    cookies_dict = load_data(COOKIES_FILE)
+
+    # 2. ПРОВЕРЯЕМ КУКИ НА ВАЛИДНОСТЬ
+    is_valid = check_cookies_validity(cookies_dict, user_agent)
+
+    # 3. Если куки плохие или их нет -> обновляем
+    if not is_valid:
+        user_agent, cookies_dict = get_new_cookies()
+        if not cookies_dict:
+            print("Не удалось получить куки. Завершение работы.")
+            exit()
+
+    # 4. Начинаем парсинг
     query = "ps vita"
     all_items = []
     
+    print(f"\nНачинаем поиск: {query}")
     response, total_pages = get_page(query, 1, cookies_dict, user_agent)
     
     if response:
+        # Если вдруг даже после проверки словили 403 (редко, но бывает)
         if response.status_code == 403:
-             print("Обновляем куки...")
-             user_agent, cookies_dict = get_cookies()
+             print(" Внезапный 403. Пробуем обновить куки еще раз...")
+             user_agent, cookies_dict = get_new_cookies()
              response, total_pages = get_page(query, 1, cookies_dict, user_agent)
 
-        items = get_data_json(response.json())
-        all_items.extend(items)
-        
-        print(f"Страниц всего: {total_pages}")
-        max_pages = min(total_pages, 3)
+        if response and response.status_code == 200:
+            items = get_data_json(response.json())
+            all_items.extend(items)
+            
+            print(f" Всего страниц: {total_pages}")
+            max_pages = min(total_pages, 3) # Для теста берем 3 страницы
 
-        for page in range(2, max_pages + 1):
-            time.sleep(1.5)
-            resp = get_page(query, page, cookies_dict, user_agent)[0]
-            if resp:
-                all_items.extend(get_data_json(resp.json()))
+            for page in range(2, max_pages + 1):
+                time.sleep(1.5)
+                resp, _ = get_page(query, page, cookies_dict, user_agent)
+                if resp and resp.status_code == 200:
+                    all_items.extend(get_data_json(resp.json()))
+                else:
+                    break
+        else:
+            print("Не удалось получить данные первой страницы.")
 
-    print(f"\nРезультат: собрано {len(all_items)} товаров")
+    print(f"\n ИТОГ: собрано {len(all_items)} товаров")
     
-    # Выводим красивые результаты
-    for i in all_items[:5]: # Показываем первые 5 для примера
-        print(f"Товар: {i[0][:40]}... | Цена: {i[1]} | Фото: {i[2]}")
+    # Показать примеры
+    for idx, item in enumerate(all_items[:5], 1):
+        print(f"{idx}. {item[0][:40]}... | {item[1]} | {item[2]}")
