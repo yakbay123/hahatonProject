@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K54 Store & Aggregator</title>
+    <style>
+        /* --- CSS STYLES --- */
+        :root {
+            --bg-dark: #121212;
+            --bg-panel: #2b2b2b; 
+            --bg-input: #A0A0A0; 
+            --text-main: #ffffff;
+            --text-muted: #b3b3b3;
+            --accent: #8c8c8c; 
+            --hover: #a8a8a8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- HEADER --- */
+        header {
+            background-color: #333;
+            padding: 15px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            border-bottom: 1px solid #444;
+            height: 80px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+        }
+        .logo svg {
+            width: 100%;
+            height: 100%;
+            fill: white;
+        }
+
+        .search-container {
+            flex-grow: 1;
+            max-width: 800px;
+            margin: 0 20px;
+            position: relative;
+        }
+
+        .search-bar {
+            width: 100%;
+            background-color: var(--bg-input);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 5px 5px 5px 20px;
+        }
+
+        .search-bar input {
+            background: transparent;
+            border: none;
+            outline: none;
+            flex-grow: 1;
+            font-size: 16px;
+            color: #333;
+        }
+        .search-bar input::placeholder { color: #555; }
+
+        .search-btn {
+            background-color: #8e8e8e;
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .search-btn:hover { background-color: #777; }
+
+        /* Search History Dropdown */
+        .search-history {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: #333;
+            border: 1px solid #444;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            display: none;
+            z-index: 1001;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .search-history.active { display: block; }
+        .history-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #444;
+            color: #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-item:hover { background-color: #444; color: white; }
+        .remove-history-item { color: #888; font-size: 12px; }
+        .remove-history-item:hover { color: #fff; }
+
+        .header-actions { display: flex; gap: 25px; }
+        .action-item {
+            display: flex; flex-direction: column; align-items: center; cursor: pointer;
+            color: white; font-size: 12px; background: none; border: none; position: relative;
+        }
+        .action-item:hover { opacity: 0.8; }
+        .action-item svg { width: 24px; height: 24px; margin-bottom: 4px; fill: white; }
+        .badge-count {
+            position: absolute; top: -5px; right: -5px; background: red; color: white;
+            font-size: 10px; padding: 2px 5px; border-radius: 50%; display: none;
+        }
+
+        /* --- MAIN LAYOUT --- */
+        main {
+            padding: 20px 40px;
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            gap: 30px;
+        }
+
+        /* --- SIDEBAR FILTERS --- */
+        .sidebar {
+            width: 250px;
+            flex-shrink: 0;
+            background: var(--bg-panel);
+            padding: 20px;
+            border-radius: 8px;
+            height: fit-content;
+            display: none; /* Скрыт на страницах кроме главной */
+        }
+        .sidebar h3 { margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-weight: 400; }
+        .filter-group { margin-bottom: 20px; }
+        .filter-label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-muted); }
+        .filter-input { width: 100%; background: var(--bg-dark); border: 1px solid #555; color: white; padding: 8px; border-radius: 4px; margin-bottom: 5px; }
+        .checkbox-group label { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; font-size: 14px; }
+        .apply-btn { width: 100%; background: #555; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        .apply-btn:hover { background: #666; }
+
+        /* Стили для скролла брендов */
+        .scrollable-group {
+            max-height: 150px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .scrollable-group::-webkit-scrollbar { width: 6px; }
+        .scrollable-group::-webkit-scrollbar-track { background: #2b2b2b; }
+        .scrollable-group::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+        .scrollable-group::-webkit-scrollbar-thumb:hover { background: #777; }
+
+
+        /* --- CATALOG CONTENT --- */
+        .content-area { flex-grow: 1; }
+
+        .catalog-nav {
+            background-color: #3a3a3a; padding: 10px 20px; border-radius: 8px;
+            display: flex; align-items: center; gap: 30px; margin-bottom: 20px;
+            position: relative; z-index: 100;
+        }
+        .nav-btn {
+            background: none; border: none; color: white; font-size: 15px; cursor: pointer;
+            display: flex; align-items: center; gap: 5px; padding: 10px 0;
+        }
+        .nav-btn:hover { color: #ddd; }
+        .nav-btn::after { content: '⌄'; font-size: 12px; transform: translateY(-2px); }
+
+        /* --- MEGA MENU --- */
+        .mega-menu {
+            position: absolute; top: 100%; left: 0; width: 100%;
+            background-color: #3a3a3a; border-radius: 0 0 8px 8px; padding: 30px;
+            display: none; grid-template-columns: repeat(4, 1fr); gap: 40px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5); z-index: 200;
+        }
+        .mega-menu.active { display: grid; }
+        .menu-category h3 { font-size: 18px; margin-bottom: 15px; color: white; font-weight: 400; }
+        .menu-category ul { list-style: none; }
+        .menu-category li { margin-bottom: 8px; }
+        .menu-category a { text-decoration: none; color: #ccc; font-size: 14px; }
+        .menu-category a:hover { color: white; }
+        .menu-title-main { grid-column: 1 / -1; font-size: 24px; margin-bottom: 10px; border-bottom: 1px solid #555; padding-bottom: 10px; }
+
+        /* --- PRODUCT GRID --- */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .product-card {
+            background-color: var(--bg-panel);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s;
+            cursor: pointer;
+            border: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            min-height: 320px;
+        }
+        .product-card:hover { transform: translateY(-5px); border-color: #555; }
+
+        .card-img-wrapper {
+            height: 180px; width: 100%; background-color: #444;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .card-img { font-size: 50px; }
+        
+        .source-badge { position: absolute; top: 10px; left: 10px; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+        .badge-wb { background-color: #cb11ab; }
+        .badge-ozon { background-color: #005bff; }
+        .badge-ym { background-color: #fc3; color: black; }
+
+        .card-info { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; }
+        .card-brand { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+        .card-title { font-size: 14px; margin-bottom: 10px; line-height: 1.3; color: #eee; }
+        .card-price-block { margin-top: auto; }
+        .card-price { font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .old-price { font-size: 13px; text-decoration: line-through; color: #777; }
+        .discount-badge { background: #ff4444; font-size: 11px; padding: 2px 5px; border-radius: 4px; }
+        .card-meta { display: flex; justify-content: space-between; margin-top: 5px; font-size: 12px; color: #888; }
+
+        .fav-btn-card {
+            position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5);
+            border: none; border-radius: 50%; width: 30px; height: 30px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: 0.2s;
+        }
+        .product-card:hover .fav-btn-card { opacity: 1; }
+        .fav-btn-card.active { opacity: 1; background: rgba(255,255,255,0.2); }
+        .fav-btn-card svg { width: 16px; height: 16px; fill: none; stroke: white; stroke-width: 2; }
+        .fav-btn-card.active svg { fill: #ff4444; stroke: #ff4444; }
+
+        /* --- PAGES --- */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Login */
+        .login-container { display: flex; justify-content: center; align-items: center; height: 70vh; }
+        .login-card { background: #333; padding: 40px; border-radius: 20px; width: 380px; text-align: center; }
+        .login-input { width: 100%; padding: 12px; border-radius: 20px; border: none; background: var(--bg-input); margin-bottom: 15px; outline: none; }
+        .btn-login { background: #555; color: white; border: none; padding: 12px; width: 100%; border-radius: 15px; cursor: pointer; }
+        .btn-login:hover { background: #666; }
+        .divider { margin: 20px 0; display: flex; align-items: center; color: #777; font-size: 14px; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #555; margin: 0 10px; }
+        .btn-alt { width: 100%; background: #444; color: #ccc; border: none; padding: 10px; border-radius: 20px; margin-bottom: 10px; cursor: pointer; }
+
+        /* Favorites / Account */
+        .favorites-container, .account-card { background: #333; min-height: 60vh; border-radius: 10px; padding: 40px; }
+        .favorites-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .fav-icon { border: 2px solid white; border-radius: 10px; width: 80px; height: 60px; position: relative; margin-bottom: 20px; display: flex; justify-content: center; align-items: center;}
+        .fav-icon::before { content: ''; position: absolute; top: -10px; left: 0; width: 30px; height: 10px; border: 2px solid white; border-bottom: none; border-radius: 5px 5px 0 0; }
+        
+        .account-card { display: flex; gap: 30px; }
+        .avatar-placeholder { width: 100px; height: 100px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: end; overflow: hidden; }
+        .avatar-placeholder svg { width: 80%; height: 80%; fill: #333; }
+
+        .error-msg { color: #ff6b6b; margin-top: 10px; font-size: 14px; display: none; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo" onclick="router('home')">
+            <svg viewBox="0 0 100 100">
+                <path d="M10,10 L10,90 L30,90 L30,60 L60,90 L90,90 L50,50 L90,10 L60,10 L30,40 L30,10 Z" stroke="white" stroke-width="2" fill="none"/>
+                <text x="35" y="85" font-size="20" fill="white">54</text>
+            </svg>
+        </div>
+
+        <div class="search-container">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Поиск товаров..." autocomplete="off">
+                <button class="search-btn" onclick="app.handleSearch()">Найти</button>
+            </div>
+            <div class="search-history" id="search-history-dropdown"></div>
+        </div>
+
+        <div class="header-actions">
+            <button class="action-item" onclick="router('favorites')">
+                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <span>Избранное</span>
+                <div id="fav-count" class="badge-count">0</div>
+            </button>
+            <button class="action-item">
+                <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                <span>Корзина</span>
+            </button>
+            <button class="action-item" id="auth-btn" onclick="handleAuthClick()">
+                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <span id="auth-text">Войти</span>
+            </button>
+        </div>
+    </header>
+
+    <main id="app">
+        
+        <aside class="sidebar" id="sidebar-panel">
+            <h3>Фильтры</h3>
+            
+            <div class="filter-group">
+                <span class="filter-label">Маркетплейсы:</span>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" checked value="wb" onchange="app.applyFilters()"> Wildberries</label>
+                    <label><input type="checkbox" checked value="ozon" onchange="app.applyFilters()"> Ozon</label>
+                    <label><input type="checkbox" checked value="ym" onchange="app.applyFilters()"> Яндекс.Маркет</label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Цена (₽):</span>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="price-min" placeholder="От" class="filter-input" onchange="app.applyFilters()">
+                    <input type="number" id="price-max" placeholder="До" class="filter-input" onchange="app.applyFilters()">
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Бренды:</span>
+                <div id="brand-filters-container" class="checkbox-group scrollable-group">
+                    </div>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Минимальный рейтинг:</span>
+                <select id="rating-min" class="filter-input" onchange="app.applyFilters()">
+                    <option value="0">Любой</option>
+                    <option value="4.5">4.5+</option>
+                    <option value="4.0">4.0+</option>
+                    <option value="3.0">3.0+</option>
+                </select>
+            </div>
+
+            <button class="apply-btn" onclick="app.applyFilters()">Применить</button>
+        </aside>
+
+        <div class="content-area">
+            <div id="page-home" class="page active">
+                
+                <div class="catalog-nav">
+                    <svg class="filter-icon" width="20" height="20" viewBox="0 0 24 24" fill="white">
+                        <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+                    </svg>
+                    <button class="nav-btn" onclick="toggleMegaMenu('clothing')">Одежда и обувь</button>
+                    <button class="nav-btn" onclick="toggleMegaMenu('home')">Дом</button>
+                    <button class="nav-btn" onclick="toggleMegaMenu('kids')">Детские товары</button>
+                    <button class="nav-btn" onclick="toggleMegaMenu('beauty')">Красота</button>
+                    <button class="nav-btn" onclick="toggleMegaMenu('electronics')">Электроника</button>
+                    <button class="nav-btn">Все</button>
+
+                    <div id="mega-menu-container" class="mega-menu"></div>
+                </div>
+
+                <div class="product-grid" id="product-grid">
+                    </div>
+            </div>
+
+            <div id="page-login" class="page">
+                <div class="login-container">
+                    <div class="login-card">
+                        <h1 class="login-title">Вход</h1>
+                        <div class="input-group">
+                            <label>Логин</label>
+                            <input type="text" id="login-user" class="login-input">
+                        </div>
+                        <div class="input-group">
+                            <label>Пароль</label>
+                            <input type="password" id="login-pass" class="login-input">
+                        </div>
+                        <button class="btn-login" onclick="performLogin()">Войти</button>
+                        <p id="login-error" class="error-msg">Неверный логин или пароль</p>
+                        <div class="divider"><span>Или</span></div>
+                        <button class="btn-alt">Вход по почте</button>
+                        <button class="btn-alt">Вход по телефону</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-account" class="page">
+                <div class="account-card">
+                    <div class="avatar-placeholder">
+                        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    </div>
+                    <div class="user-info">
+                        <h2 id="account-name">Имя: </h2>
+                        <button class="btn-login" style="margin-top: 20px;" onclick="performLogout()">Выйти</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-favorites" class="page">
+                <h1 style="margin-bottom: 20px;">Избраное</h1>
+                <div class="favorites-container" id="fav-container-empty">
+                    <div class="fav-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="white" style="margin-top:2px;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    </div>
+                    <div class="fav-text">В избранном пока<br>пусто</div>
+                </div>
+                <div id="fav-grid" class="product-grid" style="display: none;"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- 1. DATABASE (Товары с брендами) ---
+        const rawData = [
+            { id: 1, title: "Смартфон Apple iPhone 15 128GB", brand: "Apple", price: 89000, oldPrice: 95000, rating: 4.9, reviews: 120, source: "ozon", image: "📱" },
+            { id: 2, title: "Кроссовки Nike Air Force 1", brand: "Nike", price: 12500, oldPrice: 15000, rating: 4.7, reviews: 45, source: "wb", image: "👟" },
+            { id: 3, title: "Кофемашина DeLonghi Magnifica", brand: "DeLonghi", price: 35000, oldPrice: 42000, rating: 4.8, reviews: 300, source: "ym", image: "☕" },
+            { id: 4, title: "Футболка базовая (хлопок)", brand: "Твое", price: 800, oldPrice: 1200, rating: 4.2, reviews: 1500, source: "wb", image: "👕" },
+            { id: 5, title: "Ноутбук ASUS Vivobook Go", brand: "ASUS", price: 45000, oldPrice: 50000, rating: 4.5, reviews: 80, source: "ozon", image: "💻" },
+            { id: 6, title: "Умная колонка Яндекс Станция", brand: "Яндекс", price: 17990, oldPrice: 17990, rating: 5.0, reviews: 500, source: "ym", image: "🔊" },
+            { id: 7, title: "Чехол для iPhone 15", brand: "Noname", price: 300, oldPrice: 500, rating: 3.8, reviews: 20, source: "wb", image: "📱" },
+            { id: 8, title: "Робот-пылесос Xiaomi", brand: "Xiaomi", price: 15000, oldPrice: 22000, rating: 4.6, reviews: 210, source: "ozon", image: "🧹" },
+            { id: 9, title: "Наушники беспроводные Sony", brand: "Sony", price: 8000, oldPrice: 9500, rating: 4.7, reviews: 150, source: "ym", image: "🎧" },
+            { id: 10, title: "Набор LEGO Star Wars", brand: "LEGO", price: 6000, oldPrice: 7000, rating: 4.9, reviews: 45, source: "ozon", image: "🧱" },
+            { id: 11, title: "Крем увлажняющий CeraVe", brand: "CeraVe", price: 1200, oldPrice: 1600, rating: 4.8, reviews: 1200, source: "wb", image: "🧴" },
+            { id: 12, title: "Телевизор Samsung 50\" 4K", brand: "Samsung", price: 45000, oldPrice: 55000, rating: 4.6, reviews: 90, source: "ym", image: "📺" }
+        ];
+
+        const usersDB = [{ username: "admin", password: "123", fullName: "Администратор" }];
+
+        // --- 2. APP LOGIC ---
+        const app = {
+            data: rawData,
+            favorites: JSON.parse(localStorage.getItem('agg_favorites')) || [],
+            history: JSON.parse(localStorage.getItem('agg_history')) || [],
+            currentUser: JSON.parse(localStorage.getItem('agg_user')) || null,
+            filters: {
+                sources: ['wb', 'ozon', 'ym'],
+                brands: [],
+                minPrice: 0,
+                maxPrice: 999999,
+                minRating: 0,
+                search: ''
+            },
+
+            init() {
+                this.setupListeners();
+                this.generateBrandFilters();
+                this.checkAuth();
+                this.updateFavCounter();
+                
+                // Default to home
+                if(!document.querySelector('.page.active')) {
+                    this.router('home');
+                } else {
+                    this.render();
+                }
+            },
+
+            setupListeners() {
+                const searchInput = document.getElementById('search-input');
+                const historyDropdown = document.getElementById('search-history-dropdown');
+
+                searchInput.addEventListener('focus', () => {
+                    this.renderHistory();
+                    if (this.history.length > 0) historyDropdown.classList.add('active');
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.search-container')) {
+                        historyDropdown.classList.remove('active');
+                    }
+                });
+
+                searchInput.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') this.handleSearch();
+                });
+            },
+
+            // --- BRANDS ---
+            generateBrandFilters() {
+                const container = document.getElementById('brand-filters-container');
+                if (!container) return;
+                const allBrands = [...new Set(this.data.map(item => item.brand))].sort();
+                
+                container.innerHTML = '';
+                allBrands.forEach(brand => {
+                    const label = document.createElement('label');
+                    label.innerHTML = `<input type="checkbox" value="${brand}" onchange="app.applyFilters()"> ${brand}`;
+                    container.appendChild(label);
+                });
+            },
+
+            // --- FILTERING ---
+            getProcessedData() {
+                return this.data.filter(item => {
+                    const matchSource = this.filters.sources.includes(item.source);
+                    const matchPrice = item.price >= this.filters.minPrice && item.price <= this.filters.maxPrice;
+                    const matchRating = item.rating >= this.filters.minRating;
+                    const matchSearch = item.title.toLowerCase().includes(this.filters.search.toLowerCase());
+                    const matchBrand = this.filters.brands.length === 0 || this.filters.brands.includes(item.brand);
+
+                    return matchSource && matchPrice && matchRating && matchSearch && matchBrand;
+                });
+            },
+
+            applyFilters() {
+                // Sources
+                const sourceCheckboxes = document.querySelectorAll('.checkbox-group:not(#brand-filters-container) input:checked');
+                this.filters.sources = Array.from(sourceCheckboxes).map(cb => cb.value);
+                
+                // Brands
+                const brandCheckboxes = document.querySelectorAll('#brand-filters-container input:checked');
+                this.filters.brands = Array.from(brandCheckboxes).map(cb => cb.value);
+
+                // Others
+                this.filters.minPrice = Number(document.getElementById('price-min').value) || 0;
+                this.filters.maxPrice = Number(document.getElementById('price-max').value) || 999999;
+                this.filters.minRating = Number(document.getElementById('rating-min').value);
+
+                this.render();
+            },
+
+            // --- SEARCH ---
+            handleSearch() {
+                const query = document.getElementById('search-input').value.trim();
+                this.filters.search = query;
+                
+                if (query) {
+                    this.history = [query, ...this.history.filter(h => h !== query)].slice(0, 5);
+                    localStorage.setItem('agg_history', JSON.stringify(this.history));
+                }
+                document.getElementById('search-history-dropdown').classList.remove('active');
+                this.router('home');
+                this.render();
+            },
+
+            renderHistory() {
+                const container = document.getElementById('search-history-dropdown');
+                container.innerHTML = '';
+                if(this.history.length === 0) {
+                    container.innerHTML = '<div style="padding:10px; color:#777; text-align:center;">История пуста</div>';
+                    return;
+                }
+                this.history.forEach(text => {
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    div.innerHTML = `
+                        <span onclick="app.applyHistorySearch('${text}')">${text}</span>
+                        <span class="remove-history-item" onclick="event.stopPropagation(); app.removeHistory('${text}')">✕</span>
+                    `;
+                    container.appendChild(div);
+                });
+            },
+            applyHistorySearch(text) {
+                document.getElementById('search-input').value = text;
+                this.handleSearch();
+            },
+            removeHistory(text) {
+                this.history = this.history.filter(h => h !== text);
+                localStorage.setItem('agg_history', JSON.stringify(this.history));
+                this.renderHistory();
+            },
+
+            // --- NAVIGATION ---
+            router(pageName) {
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById(`page-${pageName}`).classList.add('active');
+                
+                const sidebar = document.getElementById('sidebar-panel');
+                if (sidebar) sidebar.style.display = (pageName === 'home') ? 'block' : 'none';
+                
+                if (pageName === 'favorites') this.renderFavorites();
+                document.getElementById('mega-menu-container').classList.remove('active');
+            },
+
+            // --- AUTH ---
+            checkAuth() {
+                if (this.currentUser) {
+                    document.getElementById('account-name').innerText = "Имя: " + this.currentUser.fullName;
+                    document.getElementById('auth-text').innerText = this.currentUser.fullName.split(' ')[0];
+                } else {
+                    document.getElementById('auth-text').innerText = "Войти";
+                }
+            },
+
+            // --- RENDER ---
+            render() {
+                const products = this.getProcessedData();
+                const grid = document.getElementById('product-grid');
+                grid.innerHTML = '';
+
+                if (products.length === 0) {
+                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#888;">Ничего не найдено</div>';
+                    return;
+                }
+                products.forEach(item => grid.appendChild(this.createCard(item)));
+            },
+
+            renderFavorites() {
+                const grid = document.getElementById('fav-grid');
+                const empty = document.getElementById('fav-container-empty');
+                grid.innerHTML = '';
+                
+                if (this.favorites.length === 0) {
+                    empty.style.display = 'flex';
+                    grid.style.display = 'none';
+                } else {
+                    empty.style.display = 'none';
+                    grid.style.display = 'grid';
+                    const favItems = this.data.filter(i => this.favorites.includes(i.id));
+                    favItems.forEach(item => grid.appendChild(this.createCard(item)));
+                }
+            },
+
+            createCard(item) {
+                const isFav = this.favorites.includes(item.id);
+                const div = document.createElement('div');
+                div.className = 'product-card';
+                div.onclick = () => alert(`Бренд: ${item.brand}\nТовар: ${item.title}`);
+                
+                let badgeClass = '', badgeText = '';
+                if(item.source === 'wb') { badgeClass = 'badge-wb'; badgeText = 'Wildberries'; }
+                if(item.source === 'ozon') { badgeClass = 'badge-ozon'; badgeText = 'Ozon'; }
+                if(item.source === 'ym') { badgeClass = 'badge-ym'; badgeText = 'Яндекс'; }
+
+                const discount = Math.round(((item.oldPrice - item.price) / item.oldPrice) * 100);
+
+                div.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <div class="card-img">${item.image}</div>
+                        <span class="source-badge ${badgeClass}">${badgeText}</span>
+                        <button class="fav-btn-card ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); app.toggleFav(${item.id}, this)">
+                            <svg><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        </button>
+                    </div>
+                    <div class="card-info">
+                        <div class="card-brand">${item.brand}</div>
+                        <div class="card-title">${item.title}</div>
+                        <div class="card-meta">
+                            <span>★ ${item.rating}</span>
+                            <span>${item.reviews} отз.</span>
+                        </div>
+                        <div class="card-price-block">
+                            <div class="card-price">
+                                ${item.price.toLocaleString()} ₽ 
+                                ${discount > 0 ? `<span class="discount-badge">-${discount}%</span>` : ''}
+                            </div>
+                            ${item.oldPrice > item.price ? `<div class="old-price">${item.oldPrice.toLocaleString()} ₽</div>` : ''}
+                        </div>
+                    </div>
+                `;
+                return div;
+            },
+
+            toggleFav(id, btnElement) {
+                if (this.favorites.includes(id)) {
+                    this.favorites = this.favorites.filter(favId => favId !== id);
+                    btnElement.classList.remove('active');
+                } else {
+                    this.favorites.push(id);
+                    btnElement.classList.add('active');
+                }
+                localStorage.setItem('agg_favorites', JSON.stringify(this.favorites));
+                this.updateFavCounter();
+                
+                if(document.getElementById('page-favorites').classList.contains('active')) {
+                    this.renderFavorites();
+                }
+            },
+            updateFavCounter() {
+                const el = document.getElementById('fav-count');
+                el.style.display = this.favorites.length > 0 ? 'block' : 'none';
+                el.innerText = this.favorites.length;
+            }
+        };
+
+        // Navigation / Login Helpers
+        function router(p) { app.router(p); }
+        function handleAuthClick() { app.currentUser ? app.router('account') : app.router('login'); }
+        function performLogin() { app.performLogin(); } // Logic inside app object
+        function performLogout() { app.performLogout(); }
+
+        // Extend app with login methods for onclick handlers
+        app.performLogin = function() {
+            const u = document.getElementById('login-user').value;
+            const p = document.getElementById('login-pass').value;
+            const found = usersDB.find(user => user.username === u && user.password === p);
+            if (found) {
+                this.currentUser = found;
+                localStorage.setItem('agg_user', JSON.stringify(found));
+                document.getElementById('login-error').style.display = 'none';
+                this.checkAuth();
+                this.router('account');
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+        app.performLogout = function() {
+            this.currentUser = null;
+            localStorage.removeItem('agg_user');
+            this.checkAuth();
+            this.router('login');
+        }
+
+        // Mega Menu Data
+        const menuData = {
+            clothing: `
+                <div class="menu-title-main">Одежда и обувь</div>
+                <div class="menu-category">
+                    <h3>Женщинам</h3>
+                    <ul>
+                        <li><a href="#">Аксессуары</a></li>
+                        <li><a href="#">Блузы и рубашки</a></li>
+                        <li><a href="#">Боди</a></li>
+                        <li><a href="#">Брюки</a></li>
+                        <li><a href="#">Верхняя одежда</a></li>
+                    </ul>
+                    <h3>Обувь</h3>
+                    <ul>
+                        <li><a href="#">Женская обувь</a></li>
+                        <li><a href="#">Мужская обувь</a></li>
+                        <li><a href="#">Для девочек</a></li>
+                        <li><a href="#">Для мальчиков</a></li>
+                        <li><a href="#">Для малышей</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Мужчинам</h3>
+                    <ul>
+                        <li><a href="#">Аксессуары</a></li>
+                        <li><a href="#">Верхняя одежда</a></li>
+                        <li><a href="#">Брюки и штаны</a></li>
+                        <li><a href="#">Водолазки</a></li>
+                        <li><a href="#">Брюки</a></li>
+                        <li><a href="#">Свитеры</a></li>
+                    </ul>
+                    <h3>Аксессуары</h3>
+                    <ul>
+                        <li><a href="#">Сумки, рюкзаки, чемоданы</a></li>
+                        <li><a href="#">Кошельки, визитницы, косметички</a></li>
+                        <li><a href="#">Ювелирные украшения</a></li>
+                        <li><a href="#">Бижутерия</a></li>
+                        <li><a href="#">Часы</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Детям</h3>
+                    <ul>
+                        <li><a href="#">Аксессуары</a></li>
+                        <li><a href="#">Для девочек</a></li>
+                        <li><a href="#">Для мальчиков</a></li>
+                        <li><a href="#">Для малышей</a></li>
+                        <li><a href="#">Обувь</a></li>
+                    </ul>
+                </div>
+            `,
+            home: `
+                <div class="menu-title-main">Дом</div>
+                <div class="menu-category">
+                    <h3>Посуда</h3>
+                    <ul>
+                        <li><a href="#">Приготовление пищи</a></li>
+                        <li><a href="#">Приготовление напитков</a></li>
+                        <li><a href="#">Ножи</a></li>
+                        <li><a href="#">Разделочные доски</a></li>
+                        <li><a href="#">Термосы и термокружки</a></li>
+                    </ul>
+                    <h3>Интерьер</h3>
+                    <ul>
+                        <li><a href="#">Зеркала</a></li>
+                        <li><a href="#">Шторы, карнизы, декор окна</a></li>
+                        <li><a href="#">Растения, кашпо, горшки</a></li>
+                        <li><a href="#">Декор стен</a></li>
+                        <li><a href="#">Декор интерьера</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Хранение в доме</h3>
+                    <ul>
+                        <li><a href="#">Корзины, коробки и органайзеры</a></li>
+                        <li><a href="#">Вакуумные пакеты</a></li>
+                        <li><a href="#">Вешалки напольные</a></li>
+                        <li><a href="#">Вешалки настенные</a></li>
+                        <li><a href="#">Вешалки-плечики</a></li>
+                    </ul>
+                    <h3>Мебель</h3>
+                    <ul>
+                        <li><a href="#">Мягкая мебель</a></li>
+                        <li><a href="#">Гардеробы, шкафы и комоды</a></li>
+                        <li><a href="#">Кухонные столы и стулья</a></li>
+                        <li><a href="#">Рабочие места</a></li>
+                        <li><a href="#">Мебель для спальни</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Текстиль</h3>
+                    <ul>
+                        <li><a href="#">Постельное белье</a></li>
+                        <li><a href="#">Подушки</a></li>
+                        <li><a href="#">Одеяла</a></li>
+                        <li><a href="#">Наматрасники и чехлы для матрасов</a></li>
+                        <li><a href="#">Пледы и покрывала</a></li>
+                    </ul>
+                </div>
+            `,
+            // --- НОВЫЕ КАТЕГОРИИ ---
+            kids: `
+                <div class="menu-title-main">Детские товары</div>
+                <div class="menu-category">
+                    <h3>Игрушки и хобби</h3>
+                    <ul>
+                        <li><a href="#">Конструкторы (LEGO, Sluban)</a></li>
+                        <li><a href="#">Развивающие игры</a></li>
+                        <li><a href="#">Настольные игры</a></li>
+                        <li><a href="#">Радиоуправляемые модели</a></li>
+                    </ul>
+                    <h3>Для младенцев</h3>
+                    <ul>
+                        <li><a href="#">Подгузники и пеленки</a></li>
+                        <li><a href="#">Детское питание и смеси</a></li>
+                        <li><a href="#">Бутылочки и соски</a></li>
+                        <li><a href="#">Коляски и автокресла</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Детская одежда и обувь</h3>
+                    <ul>
+                        <li><a href="#">Верхняя одежда</a></li>
+                        <li><a href="#">Платья и юбки</a></li>
+                        <li><a href="#">Костюмы и комплекты</a></li>
+                        <li><a href="#">Ботинки, сапоги</a></li>
+                        <li><a href="#">Кроссовки, кеды</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Творчество и канцелярия</h3>
+                    <ul>
+                        <li><a href="#">Наборы для рисования</a></li>
+                        <li><a href="#">Пластилин и глина</a></li>
+                        <li><a href="#">Канцелярские принадлежности</a></li>
+                        <li><a href="#">Рюкзаки и пеналы</a></li>
+                    </ul>
+                </div>
+            `,
+            beauty: `
+                <div class="menu-title-main">Красота и здоровье</div>
+                <div class="menu-category">
+                    <h3>Уход за кожей</h3>
+                    <ul>
+                        <li><a href="#">Для лица (Кремы, Сыворотки)</a></li>
+                        <li><a href="#">Для тела (Лосьоны, Скрабы)</a></li>
+                        <li><a href="#">Солнцезащитные средства</a></li>
+                    </ul>
+                    <h3>Уход за волосами</h3>
+                    <ul>
+                        <li><a href="#">Шампуни и кондиционеры</a></li>
+                        <li><a href="#">Маски и бальзамы</a></li>
+                        <li><a href="#">Средства для укладки</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Макияж и Парфюмерия</h3>
+                    <ul>
+                        <li><a href="#">Декоративная косметика</a></li>
+                        <li><a href="#">Парфюмерия мужская</a></li>
+                        <li><a href="#">Парфюмерия женская</a></li>
+                    </ul>
+                    <h3>Маникюр и педикюр</h3>
+                    <ul>
+                        <li><a href="#">Лаки и гели</a></li>
+                        <li><a href="#">Инструменты</a></li>
+                        <li><a href="#">Средства для снятия</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Средства гигиены</h3>
+                    <ul>
+                        <li><a href="#">Для полости рта</a></li>
+                        <li><a href="#">Гели для душа и мыло</a></li>
+                        <li><a href="#">Дезодоранты</a></li>
+                    </ul>
+                </div>
+            `,
+            electronics: `
+                <div class="menu-title-main">Электроника</div>
+                <div class="menu-category">
+                    <h3>Смартфоны и связь</h3>
+                    <ul>
+                        <li><a href="#">Смартфоны Apple, Samsung, Xiaomi</a></li>
+                        <li><a href="#">Стационарные телефоны</a></li>
+                        <li><a href="#">SIM-карты и тарифы</a></li>
+                    </ul>
+                    <h3>Компьютеры и ноутбуки</h3>
+                    <ul>
+                        <li><a href="#">Ноутбуки</a></li>
+                        <li><a href="#">Моноблоки</a></li>
+                        <li><a href="#">Комплектующие</a></li>
+                        <li><a href="#">Мониторы</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Гаджеты и аксессуары</h3>
+                    <ul>
+                        <li><a href="#">Умные часы и браслеты</a></li>
+                        <li><a href="#">Наушники и гарнитуры</a></li>
+                        <li><a href="#">Портативные колонки</a></li>
+                        <li><a href="#">Зарядные устройства</a></li>
+                        <li><a href="#">Кабели и переходники</a></li>
+                    </ul>
+                    <h3>ТВ и Аудио/Видео</h3>
+                    <ul>
+                        <li><a href="#">Телевизоры</a></li>
+                        <li><a href="#">Саундбары и домашние кинотеатры</a></li>
+                        <li><a href="#">Проекторы</a></li>
+                    </ul>
+                </div>
+                <div class="menu-category">
+                    <h3>Крупная бытовая техника</h3>
+                    <ul>
+                        <li><a href="#">Холодильники</a></li>
+                        <li><a href="#">Стиральные машины</a></li>
+                        <li><a href="#">Плиты и духовки</a></li>
+                        <li><a href="#">Посудомоечные машины</a></li>
+                    </ul>
+                    <h3>Мелкая бытовая техника</h3>
+                    <ul>
+                        <li><a href="#">Пылесосы и роботы</a></li>
+                        <li><a href="#">Кофемашины и чайники</a></li>
+                        <li><a href="#">Утюги и отпариватели</a></li>
+                    </ul>
+                </div>
+            `
+        };
+        function toggleMegaMenu(cat) {
+            const menu = document.getElementById('mega-menu-container');
+            // Если меню активно и это та же категория, то закрываем его
+            if (menu.classList.contains('active') && menu.dataset.cat === cat) {
+                menu.classList.remove('active');
+            } else {
+                // Иначе показываем новое меню
+                if(menuData[cat]) {
+                    menu.innerHTML = menuData[cat];
+                    menu.dataset.cat = cat;
+                    menu.classList.add('active');
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>
