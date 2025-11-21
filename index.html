@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>K54 Store & Aggregator</title>
     <style>
-        /* --- CSS STYLES --- */
+
         :root {
             --bg-dark: #121212;
             --bg-panel: #2b2b2b; 
@@ -31,7 +31,7 @@
             flex-direction: column;
         }
 
-        /* --- HEADER --- */
+
         header {
             background-color: #333;
             padding: 15px 40px;
@@ -95,7 +95,6 @@
         }
         .search-btn:hover { background-color: #777; }
 
-        /* Search History Dropdown */
         .search-history {
             position: absolute;
             top: 100%;
@@ -135,7 +134,6 @@
             font-size: 10px; padding: 2px 5px; border-radius: 50%; display: none;
         }
 
-        /* --- MAIN LAYOUT --- */
         main {
             padding: 20px 40px;
             flex-grow: 1;
@@ -144,7 +142,6 @@
             gap: 30px;
         }
 
-        /* --- SIDEBAR FILTERS --- */
         .sidebar {
             width: 250px;
             flex-shrink: 0;
@@ -152,7 +149,7 @@
             padding: 20px;
             border-radius: 8px;
             height: fit-content;
-            display: none; /* Скрыт на страницах кроме главной */
+            display: none; 
         }
         .sidebar h3 { margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-weight: 400; }
         .filter-group { margin-bottom: 20px; }
@@ -162,7 +159,6 @@
         .apply-btn { width: 100%; background: #555; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
         .apply-btn:hover { background: #666; }
 
-        /* Стили для скролла брендов */
         .scrollable-group {
             max-height: 150px;
             overflow-y: auto;
@@ -174,7 +170,6 @@
         .scrollable-group::-webkit-scrollbar-thumb:hover { background: #777; }
 
 
-        /* --- CATALOG CONTENT --- */
         .content-area { flex-grow: 1; }
 
         .catalog-nav {
@@ -189,7 +184,6 @@
         .nav-btn:hover { color: #ddd; }
         .nav-btn::after { content: '⌄'; font-size: 12px; transform: translateY(-2px); }
 
-        /* --- MEGA MENU --- */
         .mega-menu {
             position: absolute; top: 100%; left: 0; width: 100%;
             background-color: #3a3a3a; border-radius: 0 0 8px 8px; padding: 30px;
@@ -204,7 +198,6 @@
         .menu-category a:hover { color: white; }
         .menu-title-main { grid-column: 1 / -1; font-size: 24px; margin-bottom: 10px; border-bottom: 1px solid #555; padding-bottom: 10px; }
 
-        /* --- PRODUCT GRID --- */
         .product-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -256,11 +249,9 @@
         .fav-btn-card svg { width: 16px; height: 16px; fill: none; stroke: white; stroke-width: 2; }
         .fav-btn-card.active svg { fill: #ff4444; stroke: #ff4444; }
 
-        /* --- PAGES --- */
         .page { display: none; }
         .page.active { display: block; }
 
-        /* Login */
         .login-container { display: flex; justify-content: center; align-items: center; height: 70vh; }
         .login-card { background: #333; padding: 40px; border-radius: 20px; width: 380px; text-align: center; }
         .login-input { width: 100%; padding: 12px; border-radius: 20px; border: none; background: var(--bg-input); margin-bottom: 15px; outline: none; }
@@ -270,11 +261,10 @@
         .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #555; margin: 0 10px; }
         .btn-alt { width: 100%; background: #444; color: #ccc; border: none; padding: 10px; border-radius: 20px; margin-bottom: 10px; cursor: pointer; }
 
-        /* Favorites / Account */
         .favorites-container, .account-card { background: #333; min-height: 60vh; border-radius: 10px; padding: 40px; }
         .favorites-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .fav-icon { border: 2px solid white; border-radius: 10px; width: 80px; height: 60px; position: relative; margin-bottom: 20px; display: flex; justify-content: center; align-items: center;}
-        .fav-icon::before { content: ''; position: absolute; top: -10px; left: 0; width: 30px; height: 10px; border: 2px solid white; border-bottom: none; border-radius: 5px 5px 0 0; }
+        .fav-icon.tag::before { content: ''; position: absolute; top: -10px; left: 0; width: 30px; height: 10px; border: 2px solid white; border-bottom: none; border-radius: 5px 5px 0 0; }
         
         .account-card { display: flex; gap: 30px; }
         .avatar-placeholder { width: 100px; height: 100px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: end; overflow: hidden; }
@@ -308,7 +298,7 @@
                 <span>Избранное</span>
                 <div id="fav-count" class="badge-count">0</div>
             </button>
-            <button class="action-item">
+            <button class="action-item" onclick="router('cart')">
                 <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                 <span>Корзина</span>
             </button>
@@ -417,19 +407,27 @@
             <div id="page-favorites" class="page">
                 <h1 style="margin-bottom: 20px;">Избраное</h1>
                 <div class="favorites-container" id="fav-container-empty">
-                    <div class="fav-icon">
+                    <div class="fav-icon tag">
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="white" style="margin-top:2px;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
                     </div>
                     <div class="fav-text">В избранном пока<br>пусто</div>
                 </div>
                 <div id="fav-grid" class="product-grid" style="display: none;"></div>
             </div>
-
-        </div>
+            
+            <div id="page-cart" class="page">
+                <h1 style="margin-bottom: 20px;">Корзина</h1>
+                <div class="favorites-container" id="cart-container-empty">
+                    <div class="fav-icon" style="background: none; border: 2px solid white;">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="white" style="margin-top:2px;"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    </div>
+                    <div class="fav-text">В корзине пока<br>пусто</div>
+                </div>
+                </div>
+            </div>
     </main>
 
     <script>
-        // --- 1. DATABASE (Товары с брендами) ---
         const rawData = [
             { id: 1, title: "Смартфон Apple iPhone 15 128GB", brand: "Apple", price: 89000, oldPrice: 95000, rating: 4.9, reviews: 120, source: "ozon", image: "📱" },
             { id: 2, title: "Кроссовки Nike Air Force 1", brand: "Nike", price: 12500, oldPrice: 15000, rating: 4.7, reviews: 45, source: "wb", image: "👟" },
@@ -447,7 +445,6 @@
 
         const usersDB = [{ username: "admin", password: "123", fullName: "Администратор" }];
 
-        // --- 2. APP LOGIC ---
         const app = {
             data: rawData,
             favorites: JSON.parse(localStorage.getItem('agg_favorites')) || [],
@@ -468,7 +465,6 @@
                 this.checkAuth();
                 this.updateFavCounter();
                 
-                // Default to home
                 if(!document.querySelector('.page.active')) {
                     this.router('home');
                 } else {
@@ -496,7 +492,6 @@
                 });
             },
 
-            // --- BRANDS ---
             generateBrandFilters() {
                 const container = document.getElementById('brand-filters-container');
                 if (!container) return;
@@ -510,7 +505,6 @@
                 });
             },
 
-            // --- FILTERING ---
             getProcessedData() {
                 return this.data.filter(item => {
                     const matchSource = this.filters.sources.includes(item.source);
@@ -524,15 +518,12 @@
             },
 
             applyFilters() {
-                // Sources
                 const sourceCheckboxes = document.querySelectorAll('.checkbox-group:not(#brand-filters-container) input:checked');
                 this.filters.sources = Array.from(sourceCheckboxes).map(cb => cb.value);
                 
-                // Brands
                 const brandCheckboxes = document.querySelectorAll('#brand-filters-container input:checked');
                 this.filters.brands = Array.from(brandCheckboxes).map(cb => cb.value);
 
-                // Others
                 this.filters.minPrice = Number(document.getElementById('price-min').value) || 0;
                 this.filters.maxPrice = Number(document.getElementById('price-max').value) || 999999;
                 this.filters.minRating = Number(document.getElementById('rating-min').value);
@@ -540,7 +531,6 @@
                 this.render();
             },
 
-            // --- SEARCH ---
             handleSearch() {
                 const query = document.getElementById('search-input').value.trim();
                 this.filters.search = query;
@@ -581,15 +571,21 @@
                 this.renderHistory();
             },
 
-            // --- NAVIGATION ---
             router(pageName) {
                 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-                document.getElementById(`page-${pageName}`).classList.add('active');
+                
+                const pageElement = document.getElementById(`page-${pageName}`);
+                if (pageElement) {
+                    pageElement.classList.add('active');
+                } else {
+                    document.getElementById('page-home').classList.add('active');
+                }
                 
                 const sidebar = document.getElementById('sidebar-panel');
                 if (sidebar) sidebar.style.display = (pageName === 'home') ? 'block' : 'none';
                 
                 if (pageName === 'favorites') this.renderFavorites();
+        
                 document.getElementById('mega-menu-container').classList.remove('active');
             },
 
@@ -603,7 +599,7 @@
                 }
             },
 
-            // --- RENDER ---
+
             render() {
                 const products = this.getProcessedData();
                 const grid = document.getElementById('product-grid');
@@ -694,13 +690,11 @@
             }
         };
 
-        // Navigation / Login Helpers
         function router(p) { app.router(p); }
         function handleAuthClick() { app.currentUser ? app.router('account') : app.router('login'); }
-        function performLogin() { app.performLogin(); } // Logic inside app object
+        function performLogin() { app.performLogin(); } 
         function performLogout() { app.performLogout(); }
 
-        // Extend app with login methods for onclick handlers
         app.performLogin = function() {
             const u = document.getElementById('login-user').value;
             const p = document.getElementById('login-pass').value;
@@ -722,7 +716,6 @@
             this.router('login');
         }
 
-        // Mega Menu Data
         const menuData = {
             clothing: `
                 <div class="menu-title-main">Одежда и обувь</div>
@@ -823,7 +816,6 @@
                     </ul>
                 </div>
             `,
-            // --- НОВЫЕ КАТЕГОРИИ ---
             kids: `
                 <div class="menu-title-main">Детские товары</div>
                 <div class="menu-category">
@@ -953,11 +945,9 @@
         };
         function toggleMegaMenu(cat) {
             const menu = document.getElementById('mega-menu-container');
-            // Если меню активно и это та же категория, то закрываем его
             if (menu.classList.contains('active') && menu.dataset.cat === cat) {
                 menu.classList.remove('active');
             } else {
-                // Иначе показываем новое меню
                 if(menuData[cat]) {
                     menu.innerHTML = menuData[cat];
                     menu.dataset.cat = cat;
