@@ -24,3 +24,19 @@
     wb_parsed_data.json - данные с Wildberries
     yandex_parsed_data.json - данные с Яндекс.Маркет
    
+структура проэкта:
+├── pycache/ # Кэшированные Python-файлы (автогенерация)
+├── app.py # Основной файл веб-приложения
+├── cookies_dict.txt # Файл с куками для парсеров
+├── html.html # Вспомогательный HTML-файл
+├── index.html # Главная страница веб-интерфейса
+├── module.py # Вспомогательный модуль с общими функциями
+├── ozon_parsed_data.json # Результаты парсинга Ozon
+├── parser_ozon.py # Парсер для маркетплейса Ozon
+├── parser_wb.py # Парсер для маркетплейса Wildberries
+├── parser_yamarket.py # Парсер для маркетплейса Яндекс.Маркет
+├── user_agent.txt # User-Agent строки для обхода блокировок
+├── wb_cookies.json # Куки для Wildberries в JSON-формате
+├── wb_parsed_data.json # Результаты парсинга Wildberries
+├── wb_user_agent.txt # Специфичные User-Agent для Wildberries
+└── yandex_parsed_data.json # Результаты парсинга Яндекс.Маркет
