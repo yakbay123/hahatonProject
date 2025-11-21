@@ -241,7 +241,7 @@ if __name__ == '__main__':
         user_agent, cookies_dict = get_new_cookies()
         if not cookies_dict: exit()
 
-    query = "ps5"
+    query = "iphone 15"
     all_items = []
     
     print(f"\n Ищем: {query}")
