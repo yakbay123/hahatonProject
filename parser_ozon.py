@@ -10,6 +10,7 @@ from curl_cffi import requests
 # --- КОНФИГУРАЦИЯ ---
 COOKIES_FILE = "cookies_dict.txt"
 UA_FILE = "user_agent.txt"
+OUTPUT_JSON_FILE = "ozon_parsed_data.json" # Имя файла для сохранения
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def load_data(filename, default_value=None):
@@ -96,7 +97,7 @@ def get_data_json(response_json):
     result = []
     widget_states = response_json.get("widgetStates", {})
     
-    debug_saved = False 
+    debug_saved = False
 
     # Универсальный рекурсивный поисковик значений
     def get_all_values(data):
@@ -131,27 +132,22 @@ def get_data_json(response_json):
                     # Собираем все важные блоки, где может быть инфа
                     main_state = item.get('mainState', [])
                     right_state = item.get('rightState', [])
-                    label_state = item.get('labelState', {}) # Бывает рейтинг тут
+                    label_state = item.get('labelState', {}) 
                     
                     # --- 1. НАЗВАНИЕ ---
                     name = "Нет названия"
-                    # Ищем в mainState тексты
                     all_main_texts = [str(x) for x in get_all_values(main_state) if isinstance(x, str)]
-                    # Фильтруем длинные строки (обычно это названия)
                     candidates = [t for t in all_main_texts if len(t) > 10 and not t.startswith("http")]
                     if candidates:
-                        # Самая длинная строка, скорее всего, название
                         name = max(candidates, key=len)
 
                     # --- 2. ЦЕНА ---
                     price = "Нет цены"
                     all_right_values = get_all_values(right_state)
-                    # Ищем строку с символом рубля
                     price_cands = [str(x) for x in all_right_values if isinstance(x, str) and "₽" in x and len(x) < 15]
                     if price_cands:
                         price = price_cands[0]
                     else:
-                        # Запасной вариант через priceV2
                         pv2 = deep_search_keys(item, ["priceV2"])
                         if pv2: 
                              try: price = pv2[0]["price"][0]["text"]
@@ -163,85 +159,46 @@ def get_data_json(response_json):
                     valid_imgs = [x for x in imgs if isinstance(x, str) and "ozon" in x and ("jpg" in x or "webp" in x)]
                     if valid_imgs: image_url = valid_imgs[0]
 
-# --- 4. АРТИКУЛ ---
+                    # --- 4. АРТИКУЛ ---
                     article = "Нет артикула"
-                    
-                    # Попытка 1: Ищем прямой ID (как было раньше)
                     direct_id = item.get("id")
                     if direct_id:
                         article = str(direct_id)
                     
-                    # Попытка 2: Если прямого ID нет, тащим из ссылки (Самый надежный метод)
                     if article == "Нет артикула":
-                        # Ищем все ссылки внутри item
                         links = deep_search_keys(item, ["link", "href", "url"])
-                        
-                        # Фильтруем ссылки, оставляем только те, что похожи на товар (содержат /product/)
                         product_links = [l for l in links if isinstance(l, str) and "/product/" in l]
-                        
                         if product_links:
-                            # Берем первую подходящую ссылку
                             main_link = product_links[0]
-                            # Ссылка выглядит примерно так: /product/nazvanie-tovara-SKU/
-                            # Нам нужно число в конце пути перед слэшем или знаком вопроса
                             match = re.search(r'-(\d+)(?:/|\?|$)', main_link)
                             if match:
                                 article = match.group(1)
                             else:
-                                # Резервный вариант для ссылок вида /product/123456
                                 match_simple = re.search(r'/product/(\d+)', main_link)
                                 if match_simple:
                                     article = match_simple.group(1)
 
                     # --- 5. РЕЙТИНГ ---
                     rating = "0.0"
-                    
-                    # Собираем ВСЕ значения из mainState, rightState и labelState
                     all_content_values = get_all_values(main_state) + get_all_values(right_state) + get_all_values(label_state)
-                    
                     found_floats = []
                     for val in all_content_values:
-                        # Превращаем всё в строку для проверки
                         s_val = str(val).strip().replace(',', '.')
-                        
-                        # Проверка: Это число? (4.9 или 5.0 или 5)
                         if re.match(r'^[3-5][.]\d{1,2}$', s_val) or s_val == "5":
                             try:
                                 f = float(s_val)
-                                # Рейтинг iPhone всегда высокий: от 3.0 до 5.0
                                 if 3.0 <= f <= 5.0:
                                     found_floats.append(f)
                             except: pass
                     
-                    # ЛОГИКА ВЫБОРА:
-                    # Если нашли несколько чисел (например 5.0 bluetooth и 4.8 рейтинг)
-                    # Рейтинг обычно имеет дробную часть (4.8, 4.9). 
-                    # Целые числа (4, 5) менее приоритетны, так как это могут быть шт. или версии.
-                    
-                    # Сначала ищем дробные (4.9)
                     best_rating = [f for f in found_floats if f % 1 != 0]
                     if best_rating:
                         rating = str(best_rating[0])
-                    # Если нет дробных, берем "5.0" или "5", если они были
                     elif found_floats:
-                         # Если есть "5.0" - берем, но с осторожностью (Bluetooth 5.0)
-                         # Обычно рейтинг идет раньше технических характеристик в JSON
                          rating = str(found_floats[0])
-
-                    # Сохраняем ТОЛЬКО mainState, чтобы видеть структуру
-                    if rating == "0.0" and "iPhone" in name and not debug_saved:
-                        try:
-                            with open('debug_mainstate.json', 'w', encoding='utf-8') as f:
-                                # Сохраняем mainState + rightState
-                                debug_data = {"mainState": main_state, "rightState": right_state}
-                                json.dump(debug_data, f, indent=4, ensure_ascii=False)
-                            print(f"\n Рейтинг не найден! Структура сохранена в 'debug_mainstate.json'.")
-                            debug_saved = True
-                        except: pass
 
                     # --- 6. БРЕНД ---
                     brand = "Не указан"
-                    # 1. Из brandLogo
                     logo_vals = get_all_values(item.get('brandLogo', {}))
                     logo_strs = [str(s) for s in logo_vals if isinstance(s, str)]
                     for s in logo_strs:
@@ -250,14 +207,10 @@ def get_data_json(response_json):
                             brand = m.group(1).replace('-', ' ').title()
                             break
                     
-                    # 2. Из Названия
                     if (brand == "Не указан" or brand == "Noname") and name != "Нет названия":
-                         # Очистка названия от "Смартфон", "Восстановленный"
                          clean_name_start = re.sub(r'^(Смартфон|Телефон|Восстановленный)\s+', '', name, flags=re.IGNORECASE)
                          first_word = clean_name_start.split()[0]
-                         # Очистка от знаков
                          first_word = re.sub(r'[^\w]', '', first_word)
-                         
                          known_brands = ["Apple", "Sony", "Samsung", "Xiaomi", "Poco", "Realme", "Honor", "Tecno", "Infinix", "Asus"]
                          if first_word in known_brands or (len(first_word) > 2 and re.match(r'^[A-Z]', first_word)):
                              brand = first_word
@@ -265,7 +218,16 @@ def get_data_json(response_json):
                     if brand.lower() in ["для", "чехол", "стекло"]: brand = "Не указан"
 
                     if name != "Нет названия":
-                        result.append([name, price, article, rating, brand, image_url])
+                        # !!! ИЗМЕНЕНИЕ: ТЕПЕРЬ СОХРАНЯЕМ КАК СЛОВАРЬ (DICT), А НЕ СПИСОК !!!
+                        item_dict = {
+                            "article": article,
+                            "name": name,
+                            "price": price,
+                            "rating": rating,
+                            "brand": brand,
+                            "image_url": image_url
+                        }
+                        result.append(item_dict)
         except Exception: continue
 
     return result
@@ -279,13 +241,14 @@ if __name__ == '__main__':
         user_agent, cookies_dict = get_new_cookies()
         if not cookies_dict: exit()
 
-    query = "iphone 15"
+    query = "ps5"
     all_items = []
     
     print(f"\n Ищем: {query}")
     response, total_pages = get_page(query, 1, cookies_dict, user_agent)
     
     if response:
+        # Получаем первую страницу
         if response.status_code == 403:
              print(" 403. Обновляем куки...")
              user_agent, cookies_dict = get_new_cookies()
@@ -293,9 +256,11 @@ if __name__ == '__main__':
 
         if response and response.status_code == 200:
             data = response.json()
-            items = get_data_json(data)
+            all_items.extend(get_data_json(data)) # Сразу добавляем
         
-            for page in range(2, min(total_pages, 3) + 1):
+            # Парсим остальные страницы (ограничим до 3 для примера)
+            limit_pages = min(total_pages, 3)
+            for page in range(2, limit_pages + 1):
                 time.sleep(1.5)
                 resp, _ = get_page(query, page, cookies_dict, user_agent)
                 if resp and resp.status_code == 200:
@@ -303,25 +268,21 @@ if __name__ == '__main__':
 
     print(f"\n Собрано: {len(all_items)}")
     
-   # Красивый вывод таблицы
-    print("=" * 160) # Делаем разделитель длиннее под ссылку
-    # Добавил колонку ФОТО в конец
+    # --- СОХРАНЕНИЕ В JSON ФАЙЛ ---
+    if all_items:
+        print(f" Сохраняю данные в {OUTPUT_JSON_FILE}...")
+        save_data(OUTPUT_JSON_FILE, all_items)
+        print(" Готово!")
+        # --- ВЫВОД ТАБЛИЦЫ  ---
+    print("=" * 160) 
     header = f"{'АРТИКУЛ':<12} | {'ЦЕНА':<10} | {'РЕЙТИНГ':<7} | {'БРЕНД':<12} | {'НАЗВАНИЕ':<35} | {'ФОТО'}"
     print(header)
     print("=" * 160)
     
     for item in all_items[:15]:
-        # Структура item: [Name, Price, Article, Rating, Brand, Image]
+        # Теперь обращаемся по ключам
+        name_short = (item["name"][:33] + '..') if len(item["name"]) > 35 else item["name"]
+        brand_short = (item["brand"][:12]) if len(item["brand"]) > 12 else item["brand"]
         
-        # Обрезаем название до 35 символов, чтобы ссылка влезла
-        name_short = (item[0][:33] + '..') if len(item[0]) > 35 else item[0]
-        
-        # Бренд тоже немного подрежем если длинный
-        brand_short = (item[4][:12]) if len(item[4]) > 12 else item[4]
-        
-        # Ссылка на фото (item[5])
-        image_link = item[5]
-
-        # Формируем строку
-        row = f"{item[2]:<12} | {item[1]:<10} | {item[3]:<7} | {brand_short:<12} | {name_short:<35} | {image_link}"
+        row = f"{item['article']:<12} | {item['price']:<10} | {item['rating']:<7} | {brand_short:<12} | {name_short:<35} | {item['image_url']}"
         print(row)

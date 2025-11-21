@@ -1,5 +1,7 @@
+import json
 import time
 import random
+import os
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
@@ -7,25 +9,20 @@ from bs4 import BeautifulSoup
 # --- НАСТРОЙКИ ---
 SEARCH_QUERY = "iphone 15 pro"
 PAGES_TO_PARSE = 3
-SCROLL_PAUSE_TIME = 0.7 # Чуть увеличил паузу, чтобы картинки точно прогрузились
+SCROLL_PAUSE_TIME = 0.7 
+OUTPUT_JSON_FILE = "wb_parsed_data.json" # Имя файла для сохранения
 
 # --- ФУНКЦИЯ КАРТИНКИ ---
 def get_big_image_url(thumb_url):
     """
     Превращает ссылку на миниатюру (c246x328) в ссылку на оригинал (big).
-    Пример входа: https://basket-12.wbbasket.ru/.../images/c246x328/1.webp
-    Пример выхода: https://basket-12.wbbasket.ru/.../images/big/1.webp
     """
     if not thumb_url or "base64" in thumb_url:
         return "Нет фото (не прогрузилось)"
     
-    # Обычно ссылка выглядит так: .../images/c246x328/1.webp
-    # Нам нужно заменить часть после /images/ на big/1.webp
     try:
-        # Разбиваем ссылку по ключевому слову 'images'
         parts = thumb_url.split('/images/')
         if len(parts) == 2:
-            # Собираем обратно, но с правильным хвостом
             return f"{parts[0]}/images/big/1.webp"
         return thumb_url
     except:
@@ -37,7 +34,6 @@ def human_scroll(driver):
     last_height = driver.execute_script("return document.body.scrollHeight")
     
     while True:
-        # Скроллим рандомно
         driver.execute_script(f"window.scrollBy(0, {random.randint(300, 700)});")
         time.sleep(SCROLL_PAUSE_TIME)
         
@@ -80,26 +76,19 @@ def parse_html_content(html_source):
             rating = rating_tag.text.strip() if rating_tag else "0"
 
             # --- ФОТО ---
-            # Ищем тег img внутри карточки
             img_tag = card.find('img')
             image_link = "Нет фото"
             
             if img_tag:
-                # Сначала проверяем src
                 src = img_tag.get('src')
                 if src:
                     image_link = src
-                else:
-                    # Иногда WB прячет ссылку в data-src или data-image-src для ленивой загрузки
-                    # Но так как мы скроллим, src должен быть на месте
-                    pass
                 
-                # Если ссылка начинается с // (без https), добавляем его
                 if image_link.startswith('//'):
                     image_link = "https:" + image_link
                 
-                # Превращаем миниатюру в большую картинку
                 image_link = get_big_image_url(image_link)
+                
                 if article_raw and price > 0:
                     products.append({
                     'id': article_raw,
@@ -125,7 +114,6 @@ def main():
             time.sleep(3)
             
             all_items = []
-
             for page in range(1, PAGES_TO_PARSE + 1):
                 print(f"\nСтраница {page}...")
                 if page == 1:
@@ -134,7 +122,7 @@ def main():
                     url = f"https://www.wildberries.ru/catalog/0/search.aspx?page={page}&sort=popular&search={SEARCH_QUERY}"
                 
                 driver.get(url)
-                human_scroll(driver) # Важно! Картинки не появятся в коде без скролла
+                human_scroll(driver) 
                 time.sleep(2)
                 
                 html = driver.page_source
@@ -143,8 +131,15 @@ def main():
                 print(f"Найдено: {len(items)} шт.")
                 all_items.extend(items)
 
-            # --- ВЫВОД ---
-            print(f"\nИТОГО СОБРАНО: {len(all_items)}")
+            # --- СОХРАНЕНИЕ В JSON  ---
+            if all_items:
+                print(f"\nСохраняю данные в файл {OUTPUT_JSON_FILE}...")
+                with open(OUTPUT_JSON_FILE, "w", encoding="utf-8") as f:
+                    json.dump(all_items, f, ensure_ascii=False, indent=4)
+                print("Файл успешно сохранен!")
+
+            # --- ВЫВОД В КОНСОЛЬ ---
+            print(f"ИТОГО СОБРАНО: {len(all_items)}")
             print("=" * 180)
             header = f"{'АРТИКУЛ':<12} | {'ЦЕНА':<10} | {'РЕЙТ':<5} | {'БРЕНД':<12} | {'НАЗВАНИЕ':<35} | {'ФОТО'}"
             print(header)
