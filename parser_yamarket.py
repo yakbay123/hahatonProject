@@ -3,12 +3,13 @@ import time
 import random
 import os
 import re
+import module
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
 
 # --- КОНФИГУРАЦИЯ ---
-SEARCH_QUERY = "iphone 15"
+SEARCH_QUERY = module.a
 OUTPUT_JSON_FILE = "yandex_parsed_data.json"
 PAGES_TO_PARSE = 2
 
