@@ -2,7 +2,6 @@ import json
 import time
 import os
 import re
-import query_parser
 import undetected_chromedriver as uc
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -242,7 +241,7 @@ if __name__ == '__main__':
         user_agent, cookies_dict = get_new_cookies()
         if not cookies_dict: exit()
 
-    query = query_parser.a
+    query = "iphone 15"
     all_items = []
     
     print(f"\n Ищем: {query}")

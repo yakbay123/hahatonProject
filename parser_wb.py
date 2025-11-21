@@ -2,13 +2,12 @@ import json
 import time
 import random
 import os
-import query_parser
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 
 # --- НАСТРОЙКИ ---
-SEARCH_QUERY = query_parser.a
+SEARCH_QUERY = "iphone 15"
 PAGES_TO_PARSE = 3
 SCROLL_PAUSE_TIME = 0.7 
 OUTPUT_JSON_FILE = "wb_parsed_data.json" # Имя файла для сохранения
